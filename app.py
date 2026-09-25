@@ -44,7 +44,9 @@ server = app.server
 
 
 def chart_style(fig):
-    fig.update_layout(template="plotly_white", paper_bgcolor="#ffffff", plot_bgcolor="#ffffff", font_color="#263a34", margin=dict(l=24, r=24, t=54, b=28), legend_title_text="")
+    fig.update_layout(template="plotly_white", paper_bgcolor="#ffffff", plot_bgcolor="#ffffff", font_color="#263a34", margin=dict(l=24, r=24, t=34, b=28), legend_title_text="")
+    fig.update_xaxes(showgrid=True, gridcolor="#e8eee9", zeroline=False)
+    fig.update_yaxes(showgrid=True, gridcolor="#e8eee9", zeroline=False)
     return fig
 
 
@@ -52,6 +54,7 @@ app.layout = html.Div(className="page", children=[
     dcc.Store(id="orders", data=INITIAL.to_dict("records")),
     html.Header(className="topbar", children=[
         html.Div([html.Div("АТ", className="mark"), html.Div([html.Strong("АмурТранс Контроль"), html.Small("Аналитика транспортных заказов")])], className="brand"),
+        html.A("Открыть Wiki ↗", href="https://petkras.github.io/amurtrans-kontrol/", className="wiki-link", target="_blank", rel="noopener noreferrer"),
         html.Span("Учебные демонстрационные данные", className="badge"),
     ]),
     html.Main(children=[
@@ -59,15 +62,15 @@ app.layout = html.Div(className="page", children=[
         html.Div(id="upload-message", className="message", children="Открыт демонстрационный набор из 120 заказов."),
         html.Div(className="filters", children=[
             html.Div([html.Label("Период создания"), dcc.DatePickerRange(id="dates", start_date=INITIAL["created_at"].min(), end_date=INITIAL["created_at"].max(), display_format="DD.MM.YYYY")]),
-            html.Div([html.Label("Статус"), dcc.Dropdown(id="statuses", options=[{"label": x, "value": x} for x in STATUSES], value=STATUSES, multi=True)]),
+            html.Div([html.Label("Статус заказа"), dcc.Checklist(id="statuses", options=[{"label": x, "value": x} for x in STATUSES], value=STATUSES, inline=True, className="status-checklist")]),
             html.Div([html.Label("Перевозчик"), dcc.Dropdown(id="carrier", options=[{"label": "Все перевозчики", "value": "all"}] + [{"label": x, "value": x} for x in sorted(INITIAL["carrier"].unique())], value="all")]),
         ]),
         html.Div(id="metrics", className="metrics"),
         html.Div(className="grid", children=[
-            html.Section(className="panel wide", children=[html.H2("Поступление заявок"), dcc.Graph(id="trend")]),
-            html.Section(className="panel", children=[html.H2("Структура статусов"), dcc.Graph(id="pie")]),
-            html.Section(className="panel", children=[html.H2("Сроки доставки"), dcc.Graph(id="hist")]),
-            html.Section(className="panel wide", children=[html.H2("Стоимость и плановый срок"), dcc.Graph(id="scatter")]),
+            html.Section(className="panel wide", children=[html.H2("Поступление заявок"), html.P("Количество созданных заказов по месяцам. Фильтры выше применяются ко всем диаграммам.", className="chart-note"), dcc.Graph(id="trend", config={"displaylogo": False, "displayModeBar": True, "scrollZoom": True})]),
+            html.Section(className="panel", children=[html.H2("Структура статусов"), html.P("Сколько заказов находится на каждом этапе обработки.", className="chart-note"), dcc.Graph(id="pie", config={"displaylogo": False, "displayModeBar": True})]),
+            html.Section(className="panel", children=[html.H2("Сроки доставки"), html.P("Каждый столбец — интервал фактической длительности доставки; высота показывает число заказов.", className="chart-note"), dcc.Graph(id="hist", config={"displaylogo": False, "displayModeBar": True})]),
+            html.Section(className="panel wide", children=[html.H2("Стоимость и плановый срок"), html.P("Каждая точка — заказ: положение показывает плановое время и стоимость, цвет — текущий статус. Наведите курсор, чтобы увидеть маршрут и номер заказа.", className="chart-note"), dcc.Graph(id="scatter", config={"displaylogo": False, "displayModeBar": True, "scrollZoom": True})]),
         ]),
         html.Section(className="panel table-panel", children=[html.H2("Реестр заказов"), dash_table.DataTable(id="table", columns=[{"name": name, "id": field} for name, field in [("Заказ", "order_id"), ("Дата", "created_at"), ("Откуда", "origin"), ("Куда", "destination"), ("Статус", "status"), ("Перевозчик", "carrier"), ("План, ч", "planned_hours"), ("Факт, ч", "actual_hours"), ("Стоимость, ₽", "price_rub")]], page_size=10, sort_action="native", filter_action="native", style_table={"overflowX": "auto"}, style_header={"backgroundColor": "#e7eee9", "fontWeight": "700", "color": "#263a34"}, style_cell={"padding": "12px", "fontFamily": "Arial", "textAlign": "left", "borderColor": "#e4ebe6"})]),
         html.P("Данные синтетические. Показатели иллюстрируют проектируемый процесс и не описывают работу реальной компании.", className="footnote"),
@@ -111,9 +114,15 @@ def update_view(data, start, end, statuses, carrier):
     monthly = frame.assign(month=frame["created_at"].str.slice(0, 7)).groupby("month").size().reset_index(name="orders")
     trend = chart_style(px.line(monthly, x="month", y="orders", markers=True, labels={"month": "Месяц", "orders": "Заявки"}, color_discrete_sequence=["#237361"]))
     pie = chart_style(px.pie(frame, names="status", color="status", color_discrete_map=COLORS, hole=.55))
-    hist = chart_style(px.histogram(completed, x="actual_hours", nbins=12, labels={"actual_hours": "Фактический срок, ч", "count": "Заказы"}, color_discrete_sequence=["#237361"]))
-    hist.update_yaxes(title_text="Заказы")
+    hist = chart_style(px.histogram(completed, x="actual_hours", nbins=8, labels={"actual_hours": "Фактический срок, ч", "count": "Число заказов"}, color_discrete_sequence=["#237361"]))
+    hist.update_layout(bargap=.12)
+    hist.update_xaxes(title_text="Фактическая длительность доставки, ч")
+    hist.update_yaxes(title_text="Число заказов", rangemode="tozero")
     scatter = chart_style(px.scatter(frame, x="planned_hours", y="price_rub", color="status", hover_data=["order_id", "origin", "destination"], color_discrete_map=COLORS, labels={"planned_hours": "Плановый срок, ч", "price_rub": "Стоимость, ₽", "status": "Статус"}))
+    scatter.update_traces(marker={"size": 11, "opacity": .78, "line": {"width": 1, "color": "white"}})
+    scatter.update_layout(legend_title_text="Статус заказа")
+    scatter.update_yaxes(tickprefix="₽", separatethousands=True, title_text="Стоимость перевозки, ₽")
+    scatter.update_xaxes(title_text="Плановая длительность, ч")
     return metrics, trend, pie, hist, scatter, frame.to_dict("records")
 
 
