@@ -118,6 +118,8 @@ def update_view(data, start, end, statuses, carrier):
 
 
 app.index_string = app.index_string.replace("</head>", '<link rel="stylesheet" href="/assets/style.css"></head>')
+dash_app = app
+app = server  # Vercel discovers this WSGI callable at the project root.
 
 if __name__ == "__main__":
-    app.run(debug=False, host="127.0.0.1", port=8050)
+    dash_app.run(debug=False, host="127.0.0.1", port=8050)
