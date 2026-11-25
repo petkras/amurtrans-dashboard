@@ -58,21 +58,26 @@ app.layout = html.Div(className="page", children=[
         html.Span("Учебные демонстрационные данные", className="badge"),
     ]),
     html.Main(children=[
-        html.Div(className="intro", children=[html.Div([html.P("ПАНЕЛЬ ПОКАЗАТЕЛЕЙ", className="eyebrow"), html.H1("Что происходит с заказами"), html.P("Загрузите CSV, выберите период и статусы. Графики и таблица обновятся вместе.")]), dcc.Upload(id="upload", className="upload", children="Загрузить CSV · до 5 МБ", accept=".csv")]),
+        html.Div(className="intro", children=[html.Div([html.P("ПАНЕЛЬ ПОКАЗАТЕЛЕЙ", className="eyebrow"), html.H1("Что происходит с заказами"), html.P("Загрузите CSV, выберите период и статусы. Графики и таблица обновятся вместе."), html.A("К фильтрам и реестру", href="#registry", className="registry-link")]), dcc.Upload(id="upload", className="upload", children="Загрузить CSV · до 5 МБ", accept=".csv")]),
         html.Div(id="upload-message", className="message", children="Открыт демонстрационный набор из 120 заказов."),
-        html.Div(className="filters", children=[
-            html.Div([html.Label("Период создания"), dcc.DatePickerRange(id="dates", start_date=INITIAL["created_at"].min(), end_date=INITIAL["created_at"].max(), display_format="DD.MM.YYYY")]),
-            html.Div([html.Label("Статус заказа"), dcc.Checklist(id="statuses", options=[{"label": x, "value": x} for x in STATUSES], value=STATUSES, inline=True, className="status-checklist")]),
-            html.Div([html.Label("Перевозчик"), dcc.Dropdown(id="carrier", options=[{"label": "Все перевозчики", "value": "all"}] + [{"label": x, "value": x} for x in sorted(INITIAL["carrier"].unique())], value="all")]),
-        ]),
         html.Div(id="metrics", className="metrics"),
         html.Div(className="grid", children=[
-            html.Section(className="panel wide", children=[html.H2("Поступление заявок"), html.P("Количество созданных заказов по месяцам. Фильтры выше применяются ко всем диаграммам.", className="chart-note"), dcc.Graph(id="trend", config={"displaylogo": False, "displayModeBar": True, "scrollZoom": True})]),
+            html.Section(className="panel wide", children=[html.H2("Поступление заявок"), html.P("Количество созданных заказов по месяцам. Фильтры периода, статуса и перевозчика применяются ко всем диаграммам.", className="chart-note"), dcc.Graph(id="trend", config={"displaylogo": False, "displayModeBar": True, "scrollZoom": True})]),
             html.Section(className="panel", children=[html.H2("Структура статусов"), html.P("Сколько заказов находится на каждом этапе обработки.", className="chart-note"), dcc.Graph(id="pie", config={"displaylogo": False, "displayModeBar": True})]),
             html.Section(className="panel", children=[html.H2("Сроки доставки"), html.P("Каждый столбец — интервал фактической длительности доставки; высота показывает число заказов.", className="chart-note"), dcc.Graph(id="hist", config={"displaylogo": False, "displayModeBar": True})]),
             html.Section(className="panel wide", children=[html.H2("Стоимость и плановый срок"), html.P("Каждая точка — заказ: положение показывает плановое время и стоимость, цвет — текущий статус. Наведите курсор, чтобы увидеть маршрут и номер заказа.", className="chart-note"), dcc.Graph(id="scatter", config={"displaylogo": False, "displayModeBar": True, "scrollZoom": True})]),
         ]),
-        html.Section(className="panel table-panel", children=[html.H2("Реестр заказов"), dash_table.DataTable(id="table", columns=[{"name": name, "id": field} for name, field in [("Заказ", "order_id"), ("Дата", "created_at"), ("Откуда", "origin"), ("Куда", "destination"), ("Статус", "status"), ("Перевозчик", "carrier"), ("План, ч", "planned_hours"), ("Факт, ч", "actual_hours"), ("Стоимость, ₽", "price_rub")]], page_size=10, sort_action="native", filter_action="native", style_table={"overflowX": "auto"}, style_header={"backgroundColor": "#e7eee9", "fontWeight": "700", "color": "#263a34"}, style_cell={"padding": "12px", "fontFamily": "Arial", "textAlign": "left", "borderColor": "#e4ebe6"})]),
+        html.Section(id="registry", className="panel table-panel", children=[
+            html.H2("Реестр заказов"),
+            html.P("Поиск по номеру действует только в реестре. Остальные фильтры также обновляют графики.", className="registry-note"),
+            html.Div(className="filters registry-filters", children=[
+                html.Div([html.Label("Номер заказа", htmlFor="order-search"), dcc.Input(id="order-search", type="search", placeholder="Например, AT-0008", debounce=True)]),
+            html.Div([html.Label("Дата создания заказа"), dcc.DatePickerRange(id="dates", clearable=True, start_date_placeholder_text="С даты", end_date_placeholder_text="По дату", start_date=INITIAL["created_at"].min(), end_date=INITIAL["created_at"].max(), display_format="DD.MM.YYYY")]),
+            html.Div([html.Label("Статус заказа"), dcc.Checklist(id="statuses", options=[{"label": x, "value": x} for x in STATUSES], value=STATUSES, inline=True, className="status-checklist")]),
+            html.Div([html.Label("Перевозчик", htmlFor="carrier"), dcc.Dropdown(id="carrier", options=[{"label": "Все перевозчики", "value": "all"}] + [{"label": x, "value": x} for x in sorted(INITIAL["carrier"].unique())], value="all")]),
+        ]),
+            dash_table.DataTable(id="table", data=INITIAL.to_dict("records"), columns=[{"name": name, "id": field} for name, field in [("Заказ", "order_id"), ("Дата", "created_at"), ("Откуда", "origin"), ("Куда", "destination"), ("Статус", "status"), ("Перевозчик", "carrier"), ("План, ч", "planned_hours"), ("Факт, ч", "actual_hours"), ("Стоимость, ₽", "price_rub")]], page_size=10, sort_action="native", style_table={"overflowX": "auto"}, style_header={"backgroundColor": "#e7eee9", "fontWeight": "700", "color": "#263a34"}, style_cell={"padding": "12px", "fontFamily": "Arial", "textAlign": "left", "borderColor": "#e4ebe6"}),
+        ]),
         html.P("Данные синтетические. Показатели иллюстрируют проектируемый процесс и не описывают работу реальной компании.", className="footnote"),
     ]),
 ])
@@ -97,8 +102,8 @@ def update_date_range(data):
     return dates[0], dates[-1], dates[0], dates[-1]
 
 
-@app.callback(Output("metrics", "children"), Output("trend", "figure"), Output("pie", "figure"), Output("hist", "figure"), Output("scatter", "figure"), Output("table", "data"), Input("orders", "data"), Input("dates", "start_date"), Input("dates", "end_date"), Input("statuses", "value"), Input("carrier", "value"))
-def update_view(data, start, end, statuses, carrier):
+@app.callback(Output("metrics", "children"), Output("trend", "figure"), Output("pie", "figure"), Output("hist", "figure"), Output("scatter", "figure"), Output("table", "data"), Input("orders", "data"), Input("dates", "start_date"), Input("dates", "end_date"), Input("statuses", "value"), Input("carrier", "value"), Input("order-search", "value"))
+def update_view(data, start, end, statuses, carrier, order_search=None):
     frame = pd.DataFrame(data)
     if start:
         frame = frame[frame["created_at"] >= start[:10]]
@@ -123,7 +128,14 @@ def update_view(data, start, end, statuses, carrier):
     scatter.update_layout(legend_title_text="Статус заказа")
     scatter.update_yaxes(tickprefix="₽", separatethousands=True, title_text="Стоимость перевозки, ₽")
     scatter.update_xaxes(title_text="Плановая длительность, ч")
-    return metrics, trend, pie, hist, scatter, frame.to_dict("records")
+    search = (order_search or "").strip()
+    registry = frame[frame["order_id"].astype(str).str.contains(search, case=False, regex=False)] if search else frame
+    return metrics, trend, pie, hist, scatter, registry.to_dict("records")
+
+
+@app.callback(Output("table", "page_current"), Input("table", "data"))
+def reset_registry_page(_data):
+    return 0
 
 
 app.index_string = app.index_string.replace("</head>", '<link rel="stylesheet" href="/assets/style.css"></head>')
